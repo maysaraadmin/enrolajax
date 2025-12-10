@@ -3,18 +3,18 @@ namespace local_enrolajax;
 
 require_once($CFG->dirroot . '/lib/enrollib.php');
 
-class external extends \external_api {
+class external extends \core_external\external_api {
     public static function enrol_parameters() {
-        return new \external_function_parameters([
-            'userid'   => new \external_value(PARAM_INT, 'User id'),
-            'courseid' => new \external_value(PARAM_INT, 'Course id'),
+        return new \core_external\external_function_parameters([
+            'userid'   => new \core_external\external_value(PARAM_INT, 'User id'),
+            'courseid' => new \core_external\external_value(PARAM_INT, 'Course id'),
         ]);
     }
 
     public static function enrol_returns() {
-        return new \external_single_structure([
-            'status'  => new \external_value(PARAM_TEXT, 'ok / error'),
-            'message' => new \external_value(PARAM_RAW, 'Human readable'),
+        return new \core_external\external_single_structure([
+            'status'  => new \core_external\external_value(PARAM_TEXT, 'ok / error'),
+            'message' => new \core_external\external_value(PARAM_RAW, 'Human readable'),
         ]);
     }
 
