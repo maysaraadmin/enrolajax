@@ -4,121 +4,193 @@ require_login();
 require_capability('local/enrolajax:enrol', \context_system::instance());
 
 $PAGE->set_url('/local/enrolajax/enrol.php');
-$PAGE->set_title(get_string('enroluser', 'local_enrolajax'));
+$PAGE->set_title(get_string('enrolmultiple', 'local_enrolajax'));
 
 // Temporarily embed JavaScript directly to bypass AMD loading issues
-$PAGE->requires->js_init_code('
-    let selectedUser = null;
-    let selectedCourse = null;
+$js = <<<EOT
+let selectedUsers = [];
+let selectedCourses = [];
 
-    // Hide the loading indicator
-    document.getElementById("js-test-indicator").style.display = "none";
+// Hide the loading indicator
+document.getElementById('js-test-indicator').style.display = 'none';
 
-    function checkEnrolButton() {
-        const shouldEnable = selectedUser && selectedCourse;
-        document.getElementById("enrol-button").disabled = !shouldEnable;
+function checkEnrolButton() {
+    const shouldEnable = selectedUsers.length > 0 && selectedCourses.length > 0;
+    document.getElementById('enrol-button').disabled = !shouldEnable;
+}
+
+// Handle user selection
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('user-select')) {
+        const user = {
+            id: e.target.dataset.userId,
+            name: e.target.dataset.userName
+        };
+        
+        if (e.target.checked) {
+            selectedUsers.push(user);
+        } else {
+            selectedUsers = selectedUsers.filter(u => u.id !== user.id);
+        }
+        
+        updateSelectedUsersDisplay();
+        checkEnrolButton();
+    }
+});
+
+// Handle course selection
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('course-select')) {
+        const course = {
+            id: e.target.dataset.courseId,
+            name: e.target.dataset.courseName
+        };
+        
+        if (e.target.checked) {
+            selectedCourses.push(course);
+        } else {
+            selectedCourses = selectedCourses.filter(c => c.id !== course.id);
+        }
+        
+        updateSelectedCoursesDisplay();
+        checkEnrolButton();
+    }
+});
+
+function updateSelectedUsersDisplay() {
+    const container = document.getElementById('selected-users-list');
+    container.innerHTML = '';
+    
+    if (selectedUsers.length === 0) {
+        document.getElementById('selected-user').style.display = 'none';
+        return;
+    }
+    
+    selectedUsers.forEach(user => {
+        const item = document.createElement('div');
+        item.className = 'selected-item';
+        item.textContent = user.name;
+        container.appendChild(item);
+    });
+    
+    document.getElementById('selected-user').style.display = 'block';
+}
+
+function updateSelectedCoursesDisplay() {
+    const container = document.getElementById('selected-courses-list');
+    container.innerHTML = '';
+    
+    if (selectedCourses.length === 0) {
+        document.getElementById('selected-course').style.display = 'none';
+        return;
+    }
+    
+    selectedCourses.forEach(course => {
+        const item = document.createElement('div');
+        item.className = 'selected-item';
+        item.textContent = course.name;
+        container.appendChild(item);
+    });
+    
+    document.getElementById('selected-course').style.display = 'block';
+}
+
+// Handle enrol button click
+document.getElementById('enrol-button').addEventListener('click', async function(e) {
+    e.preventDefault();
+    
+    if (selectedUsers.length === 0 || selectedCourses.length === 0) {
+        alert('Please select both users and courses');
+        return;
     }
 
-    // Handle user selection
-    document.addEventListener("change", function(e) {
-        if (e.target.classList.contains("user-select") && e.target.checked) {
-            selectedUser = {
-                id: e.target.dataset.userId,
-                name: e.target.dataset.userName
-            };
-            document.getElementById("selected-user-name").textContent = selectedUser.name;
-            document.getElementById("selected-user-id").value = selectedUser.id;
-            document.getElementById("selected-user").style.display = "block";
-            checkEnrolButton();
-        }
-    });
+    const button = this;
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Enrolling...';
 
-    // Handle course selection
-    document.addEventListener("change", function(e) {
-        if (e.target.classList.contains("course-select") && e.target.checked) {
-            selectedCourse = {
-                id: e.target.dataset.courseId,
-                name: e.target.dataset.courseName
-            };
-            document.getElementById("selected-course-name").textContent = selectedCourse.name;
-            document.getElementById("selected-course-id").value = selectedCourse.id;
-            document.getElementById("selected-course").style.display = "block";
-            checkEnrolButton();
-        }
-    });
-
-    // Handle enrol button click
-    document.getElementById("enrol-button").addEventListener("click", async function(e) {
-        e.preventDefault();
-        
-        if (!selectedUser || !selectedCourse) {
-            alert("Please select both a user and a course");
-            return;
-        }
-
-        const button = this;
-        const originalText = button.textContent;
-        button.disabled = true;
-        button.textContent = "Enrolling...";
-
-        try {
-            // Use Moodle\'s built-in AJAX service
-            const response = await fetch(M.cfg.wwwroot + "/lib/ajax/service.php", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify([{
-                    methodname: "local_enrolajax_enrol",
-                    args: {
-                        userid: selectedUser.id,
-                        courseid: selectedCourse.id
-                    }
-                }])
-            });
-            
-            console.log("Response status:", response.status);
-            console.log("Response headers:", response.headers);
-            
-            if (!response.ok) {
-                throw new Error("HTTP error: " + response.status);
-            }
-            
-            const result = await response.json();
-            console.log("Raw response:", result);
-            
-            if (result && result[0] && result[0].error) {
-                throw new Error(result[0].error);
-            }
-            
-            if (result && result[0] && result[0].status === "ok") {
-                alert("Success: " + (result[0].message || "User enrolled successfully"));
-                // Reset selections
-                document.querySelectorAll(".user-select, .course-select").forEach(radio => radio.checked = false);
-                document.getElementById("selected-user").style.display = "none";
-                document.getElementById("selected-course").style.display = "none";
-                selectedUser = null;
-                selectedCourse = null;
-                checkEnrolButton();
-            } else {
-                // More detailed error information
-                let errorMsg = "Invalid response format";
-                if (result) {
-                    errorMsg += " - Response: " + JSON.stringify(result);
-                } else {
-                    errorMsg += " - Empty or null response";
+    try {
+        // Use Moodle's built-in AJAX service
+        const response = await fetch(M.cfg.wwwroot + '/lib/ajax/service.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify([{
+                methodname: 'local_enrolajax_enrol',
+                args: {
+                    userids: selectedUsers.map(user => parseInt(user.id)),
+                    courseids: selectedCourses.map(course => parseInt(course.id)),
+                    sesskey: M.cfg.sesskey
                 }
-                throw new Error(errorMsg);
-            }
-        } catch (error) {
-            console.error("Enrolment error:", error);
-            alert("Error: " + error.message);
-        } finally {
-            button.disabled = false;
-            button.textContent = originalText;
+            }]),
+            credentials: 'same-origin'
+        });
+        
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error('HTTP error: ' + response.status);
         }
-    });
-');
+        
+        const responseData = await response.json();
+        console.log('Raw response data:', responseData);
+        
+        if (!Array.isArray(responseData) || responseData.length === 0) {
+            throw new Error('Invalid response format from server');
+        }
+        
+        const result = responseData[0];
+        console.log('Processed result:', result);
+        
+        if (result.error) {
+            const errorMsg = result.exception && result.exception.message 
+                ? result.exception.message 
+                : 'Unknown error occurred';
+            throw new Error(errorMsg);
+        }
+        
+        if (result.status === 'ok') {
+            let successMessage = result.message || 'Enrollment completed successfully';
+            
+            // Add details about successful enrollments if available
+            if (result.enrolled && Array.isArray(result.enrolled)) {
+                const successCount = result.enrolled.filter(e => e.status === 'ok').length;
+                const total = result.enrolled.length;
+                successMessage = `Successfully processed ${successCount} of ${total} enrollments`;
+            }
+            
+            alert('Success: ' + successMessage);
+            
+            // Reset selections
+            document.querySelectorAll('.user-select, .course-select').forEach(checkbox => checkbox.checked = false);
+            document.getElementById('selected-user').style.display = 'none';
+            document.getElementById('selected-course').style.display = 'none';
+            selectedUsers = [];
+            selectedCourses = [];
+            checkEnrolButton();
+        } else {
+            // More detailed error information
+            let errorMsg = 'Invalid response format';
+            if (result) {
+                errorMsg += ' - Response: ' + JSON.stringify(result);
+            } else {
+                errorMsg += ' - Empty or null response';
+            }
+            throw new Error(errorMsg);
+        }
+    } catch (error) {
+        console.error('Enrolment error:', error);
+        alert('Error: ' + error.message);
+    } finally {
+        button.disabled = false;
+        button.textContent = originalText;
+    }
+});
+EOT;
+
+$PAGE->requires->js_init_code($js);
 
 // Get all users
 $users = $DB->get_records_sql('SELECT id, firstname, lastname, email FROM {user} WHERE deleted = 0 AND suspended = 0 ORDER BY lastname, firstname');
@@ -127,7 +199,7 @@ $users = $DB->get_records_sql('SELECT id, firstname, lastname, email FROM {user}
 $courses = $DB->get_records_sql('SELECT id, fullname, shortname FROM {course} WHERE visible = 1 ORDER BY fullname');
 
 echo $OUTPUT->header();
-echo $OUTPUT->heading(get_string('enroluser', 'local_enrolajax'));
+echo $OUTPUT->heading(get_string('enrolmultiple', 'local_enrolajax'));
 
 // Add a test indicator that will be hidden by JavaScript
 echo '<div id="js-test-indicator" style="background: yellow; padding: 10px; margin: 10px 0;">JavaScript is loading...</div>';
@@ -137,15 +209,15 @@ echo '<div class="row mb-3">
     <div class="col-md-6">
         <h4>' . get_string('user', 'local_enrolajax') . '</h4>
         <div id="selected-user" class="alert alert-info" style="display:none;">
-            <strong>Selected:</strong> <span id="selected-user-name"></span>
-            <input type="hidden" id="selected-user-id" name="userid">
+            <strong>Selected Users:</strong>
+            <div id="selected-users-list" class="mt-2"></div>
         </div>
     </div>
     <div class="col-md-6">
         <h4>' . get_string('course', 'local_enrolajax') . '</h4>
         <div id="selected-course" class="alert alert-info" style="display:none;">
-            <strong>Selected:</strong> <span id="selected-course-name"></span>
-            <input type="hidden" id="selected-course-id" name="courseid">
+            <strong>Selected Courses:</strong>
+            <div id="selected-courses-list" class="mt-2"></div>
         </div>
     </div>
 </div>';
@@ -160,7 +232,7 @@ foreach ($users as $user) {
     $display_name = fullname($user);
     echo '<div class="list-group-item">
         <div class="form-check">
-            <input class="form-check-input user-select" type="radio" name="selected_user" 
+            <input class="form-check-input user-select" type="checkbox" 
                    id="user_' . $user->id . '" 
                    data-user-id="' . $user->id . '" 
                    data-user-name="' . htmlspecialchars($display_name) . '">
@@ -181,7 +253,7 @@ echo '        </div>
 foreach ($courses as $course) {
     echo '<div class="list-group-item">
         <div class="form-check">
-            <input class="form-check-input course-select" type="radio" name="selected_course" 
+            <input class="form-check-input course-select" type="checkbox" 
                    id="course_' . $course->id . '" 
                    data-course-id="' . $course->id . '" 
                    data-course-name="' . htmlspecialchars($course->fullname) . '">
