@@ -110,8 +110,8 @@ document.getElementById('enrol-button').addEventListener('click', async function
     button.textContent = 'Enrolling...';
 
     try {
-        // Use Moodle's built-in AJAX service
-        const response = await fetch(M.cfg.wwwroot + '/lib/ajax/service.php', {
+        // Use Moodle's built-in AJAX service with sesskey as URL parameter
+        const response = await fetch(M.cfg.wwwroot + '/lib/ajax/service.php?sesskey=' + encodeURIComponent(M.cfg.sesskey), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -121,8 +121,7 @@ document.getElementById('enrol-button').addEventListener('click', async function
                 methodname: 'local_enrolajax_enrol',
                 args: {
                     userids: selectedUsers.map(user => parseInt(user.id)),
-                    courseids: selectedCourses.map(course => parseInt(course.id)),
-                    sesskey: M.cfg.sesskey
+                    courseids: selectedCourses.map(course => parseInt(course.id))
                 }
             }]),
             credentials: 'same-origin'
@@ -134,8 +133,20 @@ document.getElementById('enrol-button').addEventListener('click', async function
             throw new Error('HTTP error: ' + response.status);
         }
         
-        const responseData = await response.json();
-        console.log('Raw response data:', responseData);
+        const responseText = await response.text();
+        console.log('Raw response text:', responseText);
+        
+        // Try to parse as JSON
+        let responseData;
+        try {
+            responseData = JSON.parse(responseText);
+        } catch (e) {
+            console.error('Failed to parse JSON:', e);
+            console.error('Response was:', responseText);
+            throw new Error('Invalid JSON response: ' + responseText.substring(0, 200));
+        }
+        
+        console.log('Parsed response data:', responseData);
         
         if (!Array.isArray(responseData) || responseData.length === 0) {
             throw new Error('Invalid response format from server');

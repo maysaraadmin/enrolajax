@@ -1,52 +1,49 @@
+<?php
 namespace local_enrolajax;
 
-require_once($CFG->dirroot . '/lib/enrollib.php');
+use core_external\external_api;
+use core_external\external_function_parameters;
+use core_external\external_value;
+use core_external\external_single_structure;
+use core_external\external_multiple_structure;
 
-class external extends \core_external\external_api {
+class external extends external_api {
+    
     public static function enrol_parameters() {
-        return new \core_external\external_function_parameters([
-            'userids'   => new \core_external\external_multiple_structure(
-                new \core_external\external_value(PARAM_INT, 'User id')
+        return new external_function_parameters([
+            'userids'   => new external_multiple_structure(
+                new external_value(PARAM_INT, 'User id')
             ),
-            'courseids' => new \core_external\external_multiple_structure(
-                new \core_external\external_value(PARAM_INT, 'Course id')
-            ),
-            'sesskey' => new \core_external\external_value(PARAM_RAW, 'Session key')
+            'courseids' => new external_multiple_structure(
+                new external_value(PARAM_INT, 'Course id')
+            )
         ]);
     }
 
     public static function enrol_returns() {
-        return new \core_external\external_single_structure([
-            'status'  => new \core_external\external_value(PARAM_TEXT, 'ok / error'),
-            'message' => new \core_external\external_value(PARAM_RAW, 'Human readable'),
-            'enrolled' => new \core_external\external_multiple_structure(
-                new \core_external\external_single_structure([
-                    'userid' => new \core_external\external_value(PARAM_INT, 'User ID'),
-                    'courseid' => new \core_external\external_value(PARAM_INT, 'Course ID'),
-                    'status' => new \core_external\external_value(PARAM_TEXT, 'ok/error'),
-                    'message' => new \core_external\external_value(PARAM_RAW, 'Enrollment message')
+        return new external_single_structure([
+            'status'  => new external_value(PARAM_TEXT, 'ok / error'),
+            'message' => new external_value(PARAM_RAW, 'Human readable'),
+            'enrolled' => new external_multiple_structure(
+                new external_single_structure([
+                    'userid' => new external_value(PARAM_INT, 'User ID'),
+                    'courseid' => new external_value(PARAM_INT, 'Course ID'),
+                    'status' => new external_value(PARAM_TEXT, 'ok/error'),
+                    'message' => new external_value(PARAM_RAW, 'Enrollment message')
                 ])
             )
         ]);
     }
 
-    public static function enrol($userids, $courseids, $sesskey) {
+    public static function enrol($userids, $courseids) {
         global $DB, $USER;
 
         $params = self::validate_parameters(self::enrol_parameters(), [
             'userids' => $userids,
-            'courseids' => $courseids,
-            'sesskey' => $sesskey
+            'courseids' => $courseids
         ]);
 
-        // Always validate sesskey for write operations
-        if (!confirm_sesskey($params['sesskey'])) {
-            return [
-                'status' => 'error',
-                'message' => 'Invalid session key',
-                'enrolled' => []
-            ];
-        }
+        // Sesskey validation is now handled by Moodle's external API since we send it as URL parameter
 
         $context = \context_system::instance();
         require_capability('local/enrolajax:enrol', $context);
