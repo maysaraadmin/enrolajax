@@ -148,19 +148,31 @@ document.getElementById('enrol-button').addEventListener('click', async function
         
         console.log('Parsed response data:', responseData);
         
-        if (!Array.isArray(responseData) || responseData.length === 0) {
+        // Handle both array response (from Moodle AJAX) and direct object response
+        let result;
+        if (Array.isArray(responseData) && responseData.length > 0) {
+            // Handle Moodle AJAX response format
+            result = responseData[0];
+            
+            if (result.error) {
+                const errorMsg = result.exception && result.exception.message 
+                    ? result.exception.message 
+                    : 'Unknown error occurred';
+                throw new Error(errorMsg);
+            }
+            
+            // Extract the actual data if it exists in the response
+            if (result.data) {
+                result = result.data;
+            }
+        } else if (typeof responseData === 'object' && responseData !== null) {
+            // Handle direct response object
+            result = responseData;
+        } else {
             throw new Error('Invalid response format from server');
         }
         
-        const result = responseData[0];
         console.log('Processed result:', result);
-        
-        if (result.error) {
-            const errorMsg = result.exception && result.exception.message 
-                ? result.exception.message 
-                : 'Unknown error occurred';
-            throw new Error(errorMsg);
-        }
         
         if (result.status === 'ok') {
             let successMessage = result.message || 'Enrollment completed successfully';
@@ -183,11 +195,9 @@ document.getElementById('enrol-button').addEventListener('click', async function
             checkEnrolButton();
         } else {
             // More detailed error information
-            let errorMsg = 'Invalid response format';
-            if (result) {
-                errorMsg += ' - Response: ' + JSON.stringify(result);
-            } else {
-                errorMsg += ' - Empty or null response';
+            let errorMsg = result.message || 'Unknown error occurred';
+            if (result.error) {
+                errorMsg = typeof result.error === 'object' ? JSON.stringify(result.error) : String(result.error);
             }
             throw new Error(errorMsg);
         }
