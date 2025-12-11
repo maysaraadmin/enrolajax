@@ -1,6 +1,7 @@
 <?php
 namespace local_enrolajax\form;
 
+global $CFG;
 require_once($CFG->libdir . '/formslib.php');
 
 class enrol_form extends \moodleform {

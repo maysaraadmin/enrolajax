@@ -1,6 +1,8 @@
 <?php
 defined('MOODLE_INTERNAL') || die();
 
+global $CFG;
+
 // Manually include the class file to fix autoloading issue
 require_once($CFG->dirroot . '/local/enrolajax/classes/external.php');
 

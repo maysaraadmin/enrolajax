@@ -3,7 +3,7 @@ require_once(__DIR__ . '/../../config.php');
 require_login();
 require_capability('local/enrolajax:enrol', \context_system::instance());
 
-$PAGE->set_url('/local/enrolajax/enrol.php');
+$PAGE->set_url('/local/enrolajax/index.php');
 $PAGE->set_title(get_string('enrolmultiple', 'local_enrolajax'));
 
 // Temporarily embed JavaScript directly to bypass AMD loading issues
@@ -181,7 +181,7 @@ document.getElementById('enrol-button').addEventListener('click', async function
             if (result.enrolled && Array.isArray(result.enrolled)) {
                 const successCount = result.enrolled.filter(e => e.status === 'ok').length;
                 const total = result.enrolled.length;
-                successMessage = `Successfully processed ${successCount} of ${total} enrollments`;
+                successMessage = `Successfully processed {$successCount} of {$total} enrollments`;
             }
             
             alert('Success: ' + successMessage);
@@ -256,7 +256,7 @@ foreach ($users as $user) {
             <input class="form-check-input user-select" type="checkbox" 
                    id="user_' . $user->id . '" 
                    data-user-id="' . $user->id . '" 
-                   data-user-name="' . htmlspecialchars($display_name) . '">
+                   data-user-name="' . htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8') . '">
             <label class="form-check-label w-100" for="user_' . $user->id . '">
                 <strong>' . htmlspecialchars($display_name) . '</strong><br>
                 <small class="text-muted">' . htmlspecialchars($user->email) . '</small>
@@ -277,7 +277,7 @@ foreach ($courses as $course) {
             <input class="form-check-input course-select" type="checkbox" 
                    id="course_' . $course->id . '" 
                    data-course-id="' . $course->id . '" 
-                   data-course-name="' . htmlspecialchars($course->fullname) . '">
+                   data-course-name="' . htmlspecialchars($course->fullname, ENT_QUOTES, 'UTF-8') . '">
             <label class="form-check-label w-100" for="course_' . $course->id . '">
                 <strong>' . htmlspecialchars($course->fullname) . '</strong><br>
                 <small class="text-muted">' . htmlspecialchars($course->shortname) . '</small>
